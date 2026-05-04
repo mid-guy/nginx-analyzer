@@ -59,23 +59,25 @@ run_section() {
 # PHẦN 1: XỬ LÝ THAM SỐ ĐẦU VÀO
 # ==============================================================================
 
-# $1 là tham số dòng lệnh đầu tiên — đường dẫn tới file log.
-# Dùng ${1:-} thay vì $1 để tránh lỗi "unbound variable" khi không có tham số
-# (kết hợp với set -u ở trên).
-LOG_FILE="${1:-}"
+# $1 là tham số dòng lệnh đầu tiên — đường dẫn tới file log hoặc thư mục chứa *.log.
+LOG_INPUT="${1:-}"
 
-# Kiểm tra xem người dùng có truyền tham số vào không.
-# -z kiểm tra chuỗi rỗng (zero-length).
-if [[ -z "$LOG_FILE" ]]; then
-    echo "Lỗi: Thiếu đường dẫn file log." >&2
-    echo "Sử dụng: $0 <path-to-access.log>" >&2
+if [[ -z "$LOG_INPUT" ]]; then
+    echo "Lỗi: Thiếu đường dẫn file log hoặc thư mục." >&2
+    echo "Sử dụng: $0 <path-to-access.log|directory>" >&2
     exit 1
 fi
 
-# Kiểm tra file tồn tại và là file thông thường (không phải thư mục hay symlink hỏng).
-# -f trả về true nếu đường dẫn tồn tại và là regular file.
-if [[ ! -f "$LOG_FILE" ]]; then
-    echo "Lỗi: Không tìm thấy file '$LOG_FILE'." >&2
+# Hỗ trợ cả file đơn lẫn thư mục chứa nhiều file *.log (output của gen_mock_log.py).
+if [[ -d "$LOG_INPUT" ]]; then
+    LOG_FILE=$(mktemp)
+    trap 'rm -f "$LOG_FILE"' EXIT
+    cat "$LOG_INPUT"/*.log > "$LOG_FILE"
+    echo "📂 Đã gộp $(ls "$LOG_INPUT"/*.log | wc -l | tr -d ' ') file từ thư mục '$LOG_INPUT'"
+elif [[ -f "$LOG_INPUT" ]]; then
+    LOG_FILE="$LOG_INPUT"
+else
+    echo "Lỗi: Không tìm thấy file hoặc thư mục '$LOG_INPUT'." >&2
     exit 1
 fi
 
@@ -85,7 +87,7 @@ fi
 
 echo "========================================="
 echo "📊 NGINX LOG ANALYZER REPORT"
-echo "📁 File : $LOG_FILE"
+echo "📁 File : $LOG_INPUT"
 echo "📅 Date : $(date '+%Y-%m-%d %H:%M:%S')"
 echo "========================================="
 echo ""
